@@ -1,9 +1,11 @@
  (function() {
 "use strict"
 
-function replace(document, tree) {
-	while (document.firstChild) document.removeChild(document.firstChild)
-	document.appendChild(tree) }
+function empty(el) { while(el.firstChild) el.removeChild(el.firstChild) }
+
+function replace(el, tree) {
+	empty(el)
+	el.appendChild(tree) }
 
 const is_gallery_page = location => new RegExp("^/s/[^/]+/[^/]+$").test(location)
 
