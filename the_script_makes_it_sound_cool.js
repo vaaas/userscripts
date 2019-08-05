@@ -3,31 +3,34 @@
 
 const pipe = (...fns) => (x) => fns.reduce((v, f) => f(v), x)
 
-const parse_html = x => new DOMParser.parseFromString(x, "text/html")
+const parse_html = x => new DOMParser().parseFromString(x, "text/html")
+
+const safe_pluck = k => x => typeof x === "object" ? x[k] : null
 
 function E(tag)
 	{ this.element = document.createElement(tag) }
 
-E.prototype.attribute = function(k) { return function(x)
+function attribute(k) { return function(x)
 	{ this.element.setAttribute(k, x)
 	return this }}
 
-E.prototype.value = function(k) { return function (x)
+function value(k) { return function (x)
 	{ this.element[k] = x
 	return this }}
 
-E.prototype.style = E.attribute("style")
+E.prototype.style = attribute("style")
 
-E.prototype.href = E.attribute("href")
+E.prototype.href = attribute("href")
 
-E.prototype.src = E.attribute("src")
+E.prototype.src = attribute("src")
 
-E.prototype.onclick = E.value("onclick")
+E.prototype.onclick = value("onclick")
 
-E.prototype.innerHTML = E.value("innerHTML")
+E.prototype.innerHTML = value("innerHTML")
 
 E.prototype.child = function(x)
-	{ this.element.appendChild(x)
+	{ console.log(x)
+	this.element.appendChild(x instanceof E ? x.element : x)
 	return this }
 
 function empty(el) { while(el.firstChild) el.removeChild(el.firstChild) }
@@ -43,17 +46,24 @@ const parse_page = dom =>
 	"back": dom.querySelector("div.sb a").href,
 	"next": dom.querySelector("#next").href,
 	"prev": dom.querySelector("#prev").href,
-	"pic": dom.querySelector("#img").src })
+	"pic": dom.querySelector("#img").src,
+ 	"full": safe_pluck("href")(dom.querySelector("#i7 > a")) })
 
 function render_page(data)
-	{ return E("body")
-	.style("margin: 0; background: black; text-align: center;")
-	.child(E("h1")
-		.child(E("a").href(data.back).innerHTML(data.title)))
-	.child("img")
+	{ return new E("body")
+	.style("margin: 0; background: black; text-align: center; color: white;")
+	.child(new E("img")
 		.style("display: block; width: 100vw; margin: auto;")
 		.src(data.pic)
-		.onclick(image_clicked(data.prev, data.next))
+		.onclick(image_clicked(data.prev, data.next)))
+	.child(new E("h1")
+		.child(new E("a")
+		.href(data.back)
+		.innerHTML(data.title)))
+	.child(new E("p")
+		.child(new E("a")
+			.innerHTML("img 🔗")
+			.href(data.full || data.pic)))
 	.element }
 
 const go_fullscreen = el => el.requestFullscreen()
@@ -80,7 +90,7 @@ const get_page = x => get(x).then(pipe
 
 function main() {
 	if (!is_gallery_page(window.location.pathname)) return
-	replace(document)(E("html").child(render_page(parse_page(document))).element) }
+	replace(document)(new E("html").child(render_page(parse_page(document))).element) }
 
 if (window.readyState === "complete") main()
 else window.onload = main
