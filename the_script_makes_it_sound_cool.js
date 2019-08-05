@@ -5,35 +5,9 @@ const pipe = (...fns) => (x) => fns.reduce((v, f) => f(v), x)
 
 const parse_html = x => new DOMParser().parseFromString(x, "text/html")
 
-const safe_pluck = k => x => typeof x === "object" ? x[k] : null
+const safe_pluck = k => x => x instanceof Object ? x[k] : null
 
-function E(tag)
-	{ this.element = document.createElement(tag) }
-
-function attribute(k) { return function(x)
-	{ this.element.setAttribute(k, x)
-	return this }}
-
-function value(k) { return function (x)
-	{ this.element[k] = x
-	return this }}
-
-E.prototype.style = attribute("style")
-
-E.prototype.href = attribute("href")
-
-E.prototype.src = attribute("src")
-
-E.prototype.onclick = value("onclick")
-
-E.prototype.innerHTML = value("innerHTML")
-
-E.prototype.child = function(x)
-	{ console.log(x)
-	this.element.appendChild(x instanceof E ? x.element : x)
-	return this }
-
-function empty(el) { while(el.firstChild) el.removeChild(el.firstChild) }
+function empty(x) { while(x.firstChild) x.removeChild(x.firstChild) }
 
 const replace = el => tree =>
 	{ empty(el)
@@ -50,21 +24,16 @@ const parse_page = dom =>
  	"full": safe_pluck("href")(dom.querySelector("#i7 > a")) })
 
 function render_page(data)
-	{ return new E("body")
-	.style("margin: 0; background: black; text-align: center; color: white;")
-	.child(new E("img")
-		.style("display: block; width: 100vw; margin: auto;")
-		.src(data.pic)
-		.onclick(image_clicked(data.prev, data.next)))
-	.child(new E("h1")
-		.child(new E("a")
-		.href(data.back)
-		.innerHTML(data.title)))
-	.child(new E("p")
-		.child(new E("a")
-			.innerHTML("img 🔗")
-			.href(data.full || data.pic)))
-	.element }
+	{ const elem = parse_html(`<body>
+		<style>
+			body { margin: 0; background: black; text-align: center; color: white; }
+			img { display: block; width: 100vw; margin: auto; }
+		</style>
+		<img src="${data.pic}">
+		<h1><a href="${data.back}">${data.title}</a></h1>
+		<p><a href="${data.full || data.pic}">img 🔗</a></p>`)
+	elem.querySelector("img").onclick = image_clicked(data.prev, data.next)
+	return elem.body }
 
 const go_fullscreen = el => el.requestFullscreen()
 
@@ -90,8 +59,10 @@ const get_page = x => get(x).then(pipe
 
 function main() {
 	if (!is_gallery_page(window.location.pathname)) return
-	replace(document)(new E("html").child(render_page(parse_page(document))).element) }
+	const new_root = document.createElement("html")
+	new_root.appendChild(render_page(parse_page(document)))
+	replace(document)(new_root) }
 
-if (window.readyState === "complete") main()
+if (document.readyState === "complete") main()
 else window.onload = main
 })()
