@@ -1,0 +1,24 @@
+.contain-push
+{ display: flex;
+flex-wrap: wrap; }
+
+.contain-push center
+{ display: block;
+width: 100%; }
+
+#paginator .pagination
+{ font-size: 24px; }
+
+.thumbnail-preview img
+{ width: 20em;
+height: 20em;
+object-fit: cover; }
+
+.thumbnail-preview
+{ display: block;
+background: none;
+margin: 0;
+max-height: inherit;
+max-width: inherit;
+border: none;
+padding: 0; }
