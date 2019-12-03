@@ -11,7 +11,7 @@
 // @match	https://archiveofourown.org/works/*
 // @match	http://insecure.archiveofourown.org/*
 //
-// @version	0.0.1
+// @version	0.0.2
 // @updateURL	https://raw.githubusercontent.com/vaaas/userscripts/master/ao3_get_recs.js
 // ==/UserScript==
 
@@ -29,6 +29,9 @@ const flatten = xs => xs.flat()
 const rcall = (a, b) => b(a)
 const pipe = (...fns) => x => fns.reduce(rcall, x)
 const foreach = fn => xs => xs.forEach(fn)
+const get_users = x => $$("ol.bookmark li.user h5 a", x).map(href)
+const get_bookmarks = x => $$("ol.bookmark li.bookmark", x)
+const append_child = p => x => p.appendChild(x)
 
 const limit = n => x =>
 	{ if (x.length > n) x.length = n
@@ -40,34 +43,28 @@ const get = x => new Promise((yes, no) =>
 	req.open("GET", x)
 	req.send() })
 
-const get_users = x => $$("ol.bookmark li.user h5 a", x).map(href)
-
-const get_bookmarks = x => $$("ol.bookmark li.bookmark", x)
-
-const append_child = p => x => p.appendChild(x)
-
 function give_me_recs(event)
 	{ event.target.innerText = "Please wait..."
 	const node = document.querySelector("dd.bookmarks a")
 	if (node === null) return alert("no bookmarks!")
 
 	const results = parse_dom("<ul class='bookmark index group'></ul>").firstChild
-	document.querySelector("#kudos").insertAdjacentElement("beforebegin", results) ;
+	document.querySelector("#kudos").insertAdjacentElement("beforebegin", results)
 
 	get(node.href)
 	.then(pipe
 		(parse_dom,
 		get_users,
 		map(add("/bookmarks")),
-		sort(randomly),
+		shuffle,
 		limit(10),
 		map(get),
 		xs => Promise.all(xs)))
 	.then(pipe
 		(map(pipe(parse_dom, get_bookmarks)),
 		flatten,
-		sort(randomly),
-		foreach(x => results.appendChild(x))))
+		shuffle,
+		foreach(append_child(results))))
 	.then(() => event.target.innerText = "Done reccing!") }
 
 function main()
