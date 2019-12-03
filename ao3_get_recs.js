@@ -4,7 +4,7 @@
 //
 // @author	Vasileios Pasialiokis <whiterocket@outlook.com>
 // @namespace https://github.com/vaaas/
-// @downloadURL	TODO
+// @downloadURL	https://raw.githubusercontent.com/vaaas/userscripts/master/ao3_get_recs.js
 //
 // @license	AGPLv3 - https://www.gnu.org/licenses/agpl.html
 //
@@ -12,7 +12,7 @@
 // @match	http://insecure.archiveofourown.org/*
 //
 // @version	0.0.1
-// @updateURL	TODO
+// @updateURL	https://raw.githubusercontent.com/vaaas/userscripts/master/ao3_get_recs.js
 // ==/UserScript==
 
 
