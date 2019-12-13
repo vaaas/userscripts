@@ -25,6 +25,7 @@ const parse_page = dom =>
 
 function render_page(data)
 	{ const elem = parse_html(`<body>
+		<meta name="viewport" content="width=device-width, initial-scale=1.0">
 		<style>
 			body { margin: 0; background: black; text-align: center; color: white; }
 			img { display: block; width: 100vw; margin: auto; }
