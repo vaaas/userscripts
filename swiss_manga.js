@@ -35,8 +35,14 @@ function doit()
 	newbody.firstChild.classList.remove("hide")
 	newbody.firstChild.onclick = e => right(e, e.target) ? next(e.target) : false
 	newbody.lastChild.onclick = e => right(e, e.target) ? next_page(url) : previous(e.target)
-	document.write(`<html><head><style>${stylesheet}</style></head><body></body></html>`)
-	document.body.appendChild(newbody) }
+	document.write(`<html>
+	<head>
+		<meta name="viewport" content="width=device-width, initial-scale=1.0">
+		<style>${stylesheet}</style>
+	</head>
+	<body></body></html>`)
+	document.body.appendChild(newbody)
+	document.body.requestFullscreen() }
 
 main()
 })()
