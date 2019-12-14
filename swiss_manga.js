@@ -1,3 +1,4 @@
+let run = false
 window.addEventListener("load", (function() {
 "use strict"
 const stylesheet = `html { background: black; }
@@ -51,5 +52,7 @@ function doit()
 	document.body.appendChild(newbody)
 	document.body.requestFullscreen() }
 
+if (run === true) return
+run = true
 main()
 }), { once: true })
