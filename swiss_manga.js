@@ -29,14 +29,13 @@ function image_clicked(e)
 	{ if (top(e) && !document.fullscreenElement)
 		document.firstChild.requestFullscreen()
 	else if (right(e, e.target))
-		{ if (e.target.nextElementSibling) next(x)
+		{ if (e.target.nextElementSibling) next(e.target)
 		else next_page(next_url) }
 	else
-		if (e.target.previousElementSibling) previous(x) }
+		if (e.target.previousElementSibling) previous(e.target) }
 
 function doit()
 	{ const newbody = document.createElement("div")
-	const url = next_url()
 	$$("#divImage img").forEach(x =>
 			{ x.setAttribute("style", stylesheet)
 			x.classList.add("hide")
