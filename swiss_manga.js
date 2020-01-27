@@ -10,7 +10,7 @@
 //
 // @match	https://kissmanga.com/Manga/*
 //
-// @version	0.0.1
+// @version	0.0.2
 // @updateURL	https://raw.githubusercontent.com/vaaas/userscripts/master/swiss_manga.js
 // ==/UserScript==
 
@@ -27,15 +27,19 @@ function nice_fullscreen_button()
 	const right = (ev, el) => ev.clientX - el.offsetLeft > el.offsetWidth/2
 	const top = x => x.clientY < window.innerHeight / 5
 	const next_page = x => window.location.href = x
-	const next_url = document.querySelector("img.btnNext").parentElement.href
+	const hide = x => x.classList.add("hide")
+	const show = x => x.classList.remove("hide")
+
+	let next_url = document.querySelector("img.btnnext")
+	next_url = next_url === null ? window.location.href : next_url.parentElement.href
 
 	function next(x)
-		{ x.classList.add("hide")
-		x.nextElementSibling.classList.remove("hide") }
+		{ hide(x)
+		show(x.nextElementSibling) }
 
 	function previous(x)
-		{ x.classList.add("hide")
-		x.previousElementSibling.classList.remove("hide") }
+		{ hide(x)
+		show(x.previousElementSibling) }
 
 	function main()
 		{ const button = document.createElement("button")
@@ -56,10 +60,10 @@ function nice_fullscreen_button()
 		{ const newbody = document.createElement("div")
 		$$("#divImage img").forEach(x =>
 			{ x.setAttribute("style", stylesheet)
-			x.classList.add("hide")
+			hide(x)
 			x.onclick = image_clicked
 			newbody.appendChild(x) })
-		newbody.firstChild.classList.remove("hide")
+		show(newbody.firstChild)
 		document.write(`<html>
 		<head>
 			<meta name="viewport" content="width=device-width, initial-scale=1.0">
