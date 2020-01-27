@@ -1,3 +1,20 @@
+// ==UserScript==
+// @name	the_script_makes_it_sound_cool
+// @description	adds a nicer fullscreen interface for reading manga
+//
+// @author	Vasileios Pasialiokis <whiterocket@outlook.com>
+// @namespace https://github.com/vaaas/
+// @downloadURL	https://raw.githubusercontent.com/vaaas/userscripts/master/the_script_makes_it_sound_cool.js
+//
+// @license	AGPLv3 - https://www.gnu.org/licenses/agpl.html
+//
+// @match	https://exhentai.org/s/[^/]+/[^/]+
+//
+// @version	0.0.1
+// @updateURL	https://raw.githubusercontent.com/vaaas/userscripts/master/the_script_makes_it_sound_cool.js
+// ==/UserScript==
+
+
 (function() {
 "use strict"
 
