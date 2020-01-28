@@ -8,9 +8,9 @@
 //
 // @license	AGPLv3 - https://www.gnu.org/licenses/agpl.html
 //
-// @match	https://exhentai.org/s/[^/]+/[^/]+
+// @match	https://exhentai.org/s/*/*
 //
-// @version	0.0.1
+// @version	0.0.2
 // @updateURL	https://raw.githubusercontent.com/vaaas/userscripts/master/the_script_makes_it_sound_cool.js
 // ==/UserScript==
 
