@@ -10,7 +10,7 @@
 //
 // @match	https://archiveofourown.org/works*
 //
-// @version	0.0.3
+// @version	0.0.1
 // @updateURL	https://raw.githubusercontent.com/vaaas/userscripts/master/sorted_ao3_freeforms.js
 // ==/UserScript==
 
