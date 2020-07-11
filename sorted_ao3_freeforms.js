@@ -10,7 +10,7 @@
 //
 // @match	https://archiveofourown.org/works*
 //
-// @version	0.0.1
+// @version	0.0.2
 // @updateURL	https://raw.githubusercontent.com/vaaas/userscripts/master/sorted_ao3_freeforms.js
 // ==/UserScript==
 
@@ -20,7 +20,7 @@ const $$ = (q, node=document) => Array.from(node.querySelectorAll(q))
 
 const sort = (xs, key=identity) => xs.sort((a, b) => key(a) < key(b) ? -1 : 1)
 const identity = x => x
-const innertext = x => x.innerText
+const innertext = x => x.innerText.toLowerCase()
 const remove = x => x.remove()
 const add = p => c => p.appendChild(c)
 
