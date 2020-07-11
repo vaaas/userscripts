@@ -9,8 +9,9 @@
 // @license	AGPLv3 - https://www.gnu.org/licenses/agpl.html
 //
 // @match	https://archiveofourown.org/works*
+// @match	https://archiveofourown.org/tags/*
 //
-// @version	0.0.2
+// @version	0.0.3
 // @updateURL	https://raw.githubusercontent.com/vaaas/userscripts/master/sorted_ao3_freeforms.js
 // ==/UserScript==
 
