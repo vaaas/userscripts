@@ -72,12 +72,7 @@ function main()
 
 // COMBINATORS
 const just = a => () => a
-const IF = (a, b) => x => { if (a(x)) b(x) }
-const A = a => b => a(b)
-const B = a => b => a(b(c))
 const C = a => b => c => a(c)(b)
-const T = a => b => b(a)
-const T2 = a => b => c => c(b(a))
 
 // FUNCTIONS
 function P (x, ...fs)
@@ -112,12 +107,10 @@ function parse_work(x)
 const map = f => x => x.map(f)
 const mapped = x => f => x.map(f)
 const filter = f => x => x.map(f)
-const is = a => b => a === b
 const target = x => x.target
 const value = x => x.value
 const keycode = x => x.keyCode
 const log = x => console.log(x)
-const send_value = x => PP(target, value, just, Observable.mapped(x))
 const N = c => x => new c(x)
 const join = s => xs => xs.join(s)
 const serialise_params = PP(Object.entries, map(map(encodeURIComponent)), map(join('=')), join('&'))
@@ -222,7 +215,7 @@ function E (x)
 		return e }
 
 	E.enter = f => e =>
-		{ e.element.onkeydown = IF(PP(keycode, is(13)), f)
+		{ e.element.onkeydown = x => { if (e.keyCode == 13) f(e) }
 		return e }
 
 	E.on = f => o => e =>
@@ -236,45 +229,42 @@ function E (x)
 // COMPONENTS
 function Works()
 	{ E.call(this, 'div')
+
 	const results = new Observable([])
+
+	const tag = x => P(new E('a'), E.text(x), E.href(`/tags/${encodeURIComponent(x)}/works`))
+
+	const searchresult = x => P(new E('article'),
+		E.child(P(new E('h1'),
+			E.child(P(new E('a'),
+				E.text(x.title),
+				E.href(x.href))))),
+		E.child(P(new E('p'),
+			E.html(x.summary))),
+		E.child(P(new E('div'),
+			E.add_class('tags'),
+			E.children(x.tags.map(tag)))))
+
+	const onenter = PP(target,
+		value,
+		search_works,
+		then(PP
+			(parseHTML,
+			qss('li.work'),
+			map(parse_work),
+			just,
+			Observable.mapped(results))))
+
 	P(this,
 	E.add_class('works'),
 	E.child(P(new E('input'),
 		E.type('text'),
-		E.enter(PP
-			(target,
-			value,
-			search_works,
-			then(PP
-				(parseHTML,
-				qss('li.work'),
-				map(parse_work),
-				just,
-				Observable.mapped(results))))))),
+		E.enter(onenter))),
 	E.child(P(new E('main'),
 		E.add_class('results'),
 		E.on
-			(PP(map(N(SearchResult)), E.children))
+			(PP(map(N(searchresult)), E.children))
 			(results)))) }
-
-function SearchResult(x)
-	{ E.call(this, 'article')
-	P(this,
-	E.child(P(new E('h1'),
-		E.child(P(new E('a'),
-			E.text(x.title),
-			E.href(x.href))))),
-	E.child(P(new E('p'),
-		E.html(x.summary))),
-	E.child(P(new E('div'),
-		E.add_class('tags'),
-		E.children(x.tags.map(N(Tag)))))) }
-
-function Tag(x)
-	{ E.call(this, 'a')
-	P(this,
-	E.text(x),
-	E.href(`/tags/${encodeURIComponent(x)}/works`)) }
 
 main()
 })()
