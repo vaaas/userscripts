@@ -92,7 +92,7 @@ function PP (...fs)
 function empty (x)
 	{ while (x.firstChild) x.firstChild.remove()
 	return x }
-	
+
 function parse_work(x)
 	{ const o = {}
 	let e
@@ -151,11 +151,11 @@ function Observable (x)
 	this.watchers = new Set() }
 
 	Observable.map = f => x =>
-		{ x.x	= f(x.x)
+		{ x.x = f(x.x)
 		return Observable.notify(x) }
-	
+
 	Observable.mapped = x => f =>
-		{ x.x	= f(x.x)
+		{ x.x = f(x.x)
 		return Observable.notify(x) }
 
 	Observable.notify = x =>
@@ -194,9 +194,9 @@ function E (x)
 		e.observes.forEach((v, k) => unwatch(k)(v)) }
 
 	E.text = x => e =>
-	  	{ e.element.appendChild(document.createTextNode(x))
+		{ e.element.appendChild(document.createTextNode(x))
 		return e }
-	
+
 	E.html = x => e =>
 		{ e.element.innerHTML = x
 		return e }
