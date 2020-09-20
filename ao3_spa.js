@@ -17,7 +17,7 @@ function main()
 	{ empty(document.firstElementChild)
 
 	P(document.firstElementChild,
-	classify(E),
+	N(E),
 	E.child(P(new E('head'),
 		E.child(P(new E('title'),
 			E.text('AO3 SPA'))))),
@@ -25,21 +25,22 @@ function main()
 		E.child(new Works())))) }
 
 // COMBINATORS
-const CRT = f => a => b => f(b, a)
 const just = a => () => a
 const IF = (a, b) => x => { if (a(x)) b(x) }
+const A = a => b => a(b)
+const B = a => b => a(b(c))
 const C = a => b => c => a(c)(b)
+const T = a => b => b(a)
+const T2 = a => b => c => c(b(a))
 
 // FUNCTIONS
 function P (x, ...fs)
-	{ for (let i = 0; i < fs.length; i++)
-		x = fs[i](x)
+	{ fs.forEach(T(x))
 	return x }
 
 function PP (...fs)
 	{ return function (x)
-		{ for (let i = 0; i < fs.length; i++)
-			x = fs[i](x)
+		{ fs.forEach(T(x))
 		return x }}
 
 function empty (x)
@@ -55,7 +56,7 @@ const value = x => x.value
 const keycode = x => x.keyCode
 const log = x => console.log(x)
 const sendValue = x => PP(target, value, just, C(Observable.map)(x))
-const classify = c => x => new c(x)
+const N = c => x => new c(x)
 
 // CLASSES
 function Functor (x) { this.x = x }
@@ -85,7 +86,7 @@ function Observable (x)
 		{ x.watchers.delete(f)
 		return x }
 
-function E(x)
+function E (x)
 	{ this.element = typeof x == 'string' ? document.createElement(x) : x
 	this._children = []
 	this.parent = null
@@ -138,7 +139,7 @@ function E(x)
 		return e }
 
 	E.on = f => o => e =>
-		{ f = CRT(f)(e)
+		{ f = C(f)(e)
 		if (e.observes.has(o))
 			e.observes.get(o).push(f)
 		else e.observes.set(o, [f])
@@ -157,8 +158,7 @@ function Works()
 	E.child(P(new E('div'),
 		E.add_class('results'),
 		E.on
-			//((x, p) => P(x, map(classify(SearchResult)), C(children)(p)))
-			(log)
+			(PP(map(N(SearchResult)), E.children))
 			(results)))) }
 
 main()
