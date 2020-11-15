@@ -111,12 +111,14 @@ const parseHTML = x => new DOMParser().parseFromString(x, 'text/html')
 const qs = x => e => e.querySelector(x)
 const qss = x => e => Array.from(e.querySelectorAll(x))
 const inner_text = x => x.innerText
+const inner_html = x => x.innerHTML
 const href = x => x.href
 const remove = x => x.remove()
 const empty = tap(x => { while(x.firstChild) x.firstChild.remove() })
 const maybe = f => x => x === null ? x : f(x)
 const nothing = f => x => x !== null ? x : f(x)
 const pluck = k => x => x[k]
+const trim = x => x.trim()
 
 const get = x => new Promise(yes =>
 	{ const req = new XMLHttpRequest()
@@ -276,12 +278,23 @@ class Work extends E
 		.child(E.of('main').html(work.content)) }
 
 	static parse_work(x)
-		{ const work = {}
-		work.title = qs('#workskin h2.title')(x).innerText.trim()
-		work.summary = qs('#workskin div.summary blockquote.userstuff')(x).innerHTML.trim()
-		work.author = qs('#workskin div.preface h3.byline a[rel="author"]')(x).innerText.trim()
-		work.content = qs('#workskin #chapters div.userstuff')(x).innerHTML.trim()
-		return work }}
+		{ return {
+			title: A(x,
+				qs('#workskin h2.title'),
+				maybe(AA(inner_text, trim)),
+				nothing(K(''))),
+			summary: A(x,
+				qs('#workskin div.summary blockquote.userstuff'),
+				maybe(inner_html),
+				nothing(K(''))),
+			author: A(x,
+				qs('#workskin div.preface h3.byline a[rel="author"]'),
+				maybe(AA(inner_text, trim)),
+				nothing(K(Anonymous))),
+			content: A(x,
+				qs('#workskin #chapters div.userstuff'),
+				maybe(AA(inner_html)),
+				nothing(K(Anonymous))), }}}
 
 class Works extends E
 	{ constructor(x)
@@ -323,20 +336,30 @@ class Works extends E
 		results.map(K(x instanceof Array ? x : [])) }
 
 	static parse_work(x)
-		{ const o = {}
-		let e
-		e = qs('h4.heading a')(x)
-		o.href = e.href
-		o.title = e.innerText
-		e = qs('h4.heading a[rel="author"]')(x)
-		o.author = e ? e.innerText : Anonymous
-		e = qs('.summary')(x)
-		o.summary = e ? e.innerHTML : ''
-		e = qss('ul.tags a.tag')(x)
-		o.tags = e.map(inner_text)
-		e = qs('.datetime')(x)
-		o.date = e.innerText
-		return o }}
+		{ return {
+			href: A(x,
+				qs('h4.heading a'),
+				maybe(href),
+				nothing(K(''))),
+			title: A(x,
+				qs('h4.heading a'),
+				maybe(inner_text),
+				nothing(K(''))),
+			author: A(x,
+				qs('h4.heading a[rel="author"]'),
+				maybe(inner_text),
+				nothing(K(Anonymous))),
+			summary: A(x,
+				qs('.summary'),
+				maybe(inner_html),
+				nothing(K(''))),
+			tags: A(x,
+				qss('ul.tags a.tag'),
+				map(inner_text)),
+			date: A(x,
+				qs('.datetime'),
+				maybe(inner_text),
+				nothing(K(''))), }}}
 
 main()
 })()
