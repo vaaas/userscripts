@@ -11,67 +11,66 @@
 // @match	https://archiveofourown.org/works/*
 // @match	http://insecure.archiveofourown.org/*
 //
-// @version	0.0.2
-// @updateURL	https://raw.githubusercontent.com/vaaas/userscripts/master/ao3_get_recs.js
+// @version    0.1.0
+// @updateURL    https://raw.githubusercontent.com/vaaas/userscripts/master/ao3_get_recs.js
 // ==/UserScript==
 
 
 (function() {
-const $$ = (q, node=document) => Array.from(node.querySelectorAll(q))
+const P = (x, ...xs) => xs.reduce((a,b)=>b(a), x)
+const PP = (...xs) => x => P(x, ...xs)
+const map = f => x => x.map(f)
+const $ = x => document.querySelector(x)
+const $$ = q => node => Array.from(node.querySelectorAll(q))
 const parse_dom = x => new DOMParser().parseFromString(x, "text/html").body
+const pluck = k => x => x[k]
 const add = y => x => x + y
 const shuffle = xs => xs.sort(randomly)
 const randomly = () => Math.random() - 0.5
-const href = x => x.href
-const map = fn => xs => xs.map(fn)
-const sort = fn => xs => xs.sort(fn)
-const flatten = xs => xs.flat()
-const rcall = (a, b) => b(a)
-const pipe = (...fns) => x => fns.reduce(rcall, x)
-const foreach = fn => xs => xs.forEach(fn)
-const get_users = x => $$("ol.bookmark li.user h5 a", x).map(href)
-const get_bookmarks = x => $$("ol.bookmark li.bookmark", x)
-const append_child = p => x => p.appendChild(x)
+const users = PP($$('ol.bookmark li.user h5 a', map(pluck('href'))))
+const bookmarks = $$("ol.bookmark li.bookmark")
+const child = c => x => x.appendChild(c)
+const elem = x => document.createElement(x)
+const listen = e => f => tap(x => x.addEventListener(e, f))
+const T = a => b => b(a)
+const tap = f => x => { f(x) ; return x }
+const when = a => b => c => a(c) ? b(c) : c
+const is = a => b => a === b
+const isnt = a => b => a !== b
+const maybe = when(isnt(null))
+const nothing = when(is(null))
+const set = k => v => tap(x => x[k] = v)
+const before = a => tap(b => a.before(b))
+const limit = n => when(x=>x.length>n)(set('length')(n))
+const then = f => x => x.then(f)
+const each = f => async (xs) => { for await (const x of xs) f(x) }
+const sleep = n => new Promise(yes => setTimeout(()=>yes(true), n))
+const results_element = () => P(elem('ul'), set('className')('bookmark index group'), before($('#kudos')))
 
-const limit = n => x =>
-	{ if (x.length > n) x.length = n
-	return x }
+const get = x => new Promise(yes =>
+    { const req = new XMLHttpRequest()
+    req.onload = () => sleep(1000).then(() => yes(req.responseText))
+    req.open("GET", x)
+    req.send() })
 
-const get = x => new Promise((yes, no) =>
-	{ const req = new XMLHttpRequest()
-	req.onload = () => yes(req.responseText)
-	req.open("GET", x)
-	req.send() })
+async function* result_generator(xs)
+    { for (const x of xs)
+        for (const y of P((await get(x)), parse_dom, bookmarks))
+            yield y }
 
-function give_me_recs(event)
-	{ event.target.innerText = "Please wait..."
-	const node = document.querySelector("dd.bookmarks a")
-	if (node === null) return alert("no bookmarks!")
+const give_me_recs = event => P($('dd.bookmarks a'),
+    nothing(()=>alert('no bookmarks!')),
+    maybe(PP(pluck('href'), get, tap(()=>event.target.innerText = 'Please wait...'),
+        then(PP
+            (parse_dom, users, map(add('/bookmarks')), shuffle, limit(2),
+            result_generator,
+            each(PP(child, T(results_element()))))),
+        then(()=>event.target.remove()))))
 
-	const results = parse_dom("<ul class='bookmark index group'></ul>").firstChild
-	document.querySelector("#kudos").insertAdjacentElement("beforebegin", results)
-
-	get(node.href)
-	.then(pipe
-		(parse_dom,
-		get_users,
-		map(add("/bookmarks")),
-		shuffle,
-		limit(10),
-		map(get),
-		xs => Promise.all(xs)))
-	.then(pipe
-		(map(pipe(parse_dom, get_bookmarks)),
-		flatten,
-		shuffle,
-		foreach(append_child(results))))
-	.then(() => event.target.innerText = "Done reccing!") }
-
-function main()
-	{ const node = document.querySelector("#feedback ul.actions")
-	const child = parse_dom("<li><a>Give me recs!</a></li>").firstChild
-	child.querySelector("a").onclick = give_me_recs
-	node.appendChild(child) }
+const main = () =>
+    P($('#feedback ul.actions'),
+    child(P(elem('li'),
+    child(P(elem('a'), set('innerText')('Get recs'), listen('click')(give_me_recs))))))
 
 main()
 })()
