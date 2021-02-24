@@ -65,6 +65,9 @@ const G = {}
 function main()
 	{ G.root = document.body
 	empty(G.root)
+	P(qss('style')(document), each(x => x.remove()))
+	P(qss('link')(document), each(x => x.remove()))
+	document.title = 'AO3 SPA'
 	G.route = Observable.of(null)
 	compute_element(route => ({ children: route === null ? [] : [route] }), G.route)(G.root)
 	document.body.parentElement.appendChild(P(elem('style'), set('innerText')(STYLESHEET)))
