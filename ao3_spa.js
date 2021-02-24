@@ -1,365 +1,192 @@
 // ==UserScript==
-// @name         ao3_spa
-// @version      0.0.1
-// @description  turns ao3 into a single page application
-// @author       Vasileios Pasialiokis <whiterocket@outlook.com>
-// @match        https://archiveofourown.org/spa
-// @license      AGPLv3 - https://www.gnu.org/licenses/agpl.html
-// @namespace    https://github.com/vaaas/
-// @downloadURL  https://raw.githubusercontent.com/vaaas/userscripts/master/ao3_spa.js
-// @updateURL    https://raw.githubusercontent.com/vaaas/userscripts/master/ao3_spa.js
+// @name	ao3_spa
+// @version	0.0.1
+// @description	turns ao3 into a single page application
+// @author	Vasileios Pasialiokis <whiterocket@outlook.com>
+// @match	https://archiveofourown.org/spa
+// @license	AGPLv3 - https://www.gnu.org/licenses/agpl.html
+// @namespace	https://github.com/vaaas/
+// @downloadURL	https://raw.githubusercontent.com/vaaas/userscripts/master/ao3_spa.js
+// @updateURL	https://raw.githubusercontent.com/vaaas/userscripts/master/ao3_spa.js
 // ==/UserScript==
 
 (function() {
 'use strict'
 
+// prelude
+// loops
+const map = f => function* (xs) { let i = 0 ; for (const x of xs) yield f(x, i++, xs) }
+const filter = f => function* (xs) { let i = 0 ; for (const x of xs) yield f(x, i++, xs) }
+const reduce = f => i => xs => { let a = i ; for (const x of xs) a = f(a)(x) ; return a }
+const each = f => tap(xs => { let i = 0 ; for (const x of xs) f(x, i++, xs) })
+
+// application, composition, combinators
+const B = a => b => c => a(b(c))
+const B1 = a => b => c => d => a(b(c)(d))
+const T = a => b => b(a) // thrush
+const P = (x, ...fs) => reduce(T)(x)(fs) // pipe
+const PP = (...fs) => x => P(x, ...fs) // piped composition
+const just = a => () => a
+
+// check
+const not = a => !a
+const is = a => b => a === b
+const isnt = B1(not)(is)
+
+// conditionals
+const when = cond => then => x => cond(x) ? then(x) : x
+const maybe = when(isnt(null))
+const nothing = when(is(null))
+
+// taps
+const tap = f => x => { f(x) ; return x }
+const always = v => f => x => { f(x) ; return v }
+const falsify = always(false)
+
+const set = k => v => tap(o => o[k] = v)
+const pluck = k => x => x[k]
+
+// fetch
+const text = x => x.text()
+const search = (x, q) => P(new URL(loc(x)), set('search')(new URLSearchParams(q).toString()), fetch)
+
+// dom
+const parse_html = x => new DOMParser().parseFromString(x, 'text/html')
+const empty = tap(x => { while(x.firstChild) x.firstChild.remove() })
+const elem = x => document.createElement(x)
+const child = c => tap(x => x.appendChild(c))
+const qs = q => (d=document) => d.querySelector(q)
+const qss = q => (d=document) => d.querySelectorAll(q)
+
+const log = tap(console.log)
+
 const G = {}
-const Anonymous = Symbol()
-
-const style = `
-html
-	{ background: #eee;
-	font-size: 18px; }
-
-a
-	{ color: #b22;
-	text-underline-offset: 0.25em;
-	text-decoration-style: dotted; }
-
-a:hover { text-decoration-style: solid; }
-
-.work
-	{ max-width: 40rem;
-	padding: 0.5rem;
-	margin: 0.5rem auto;
-	background: #fff;
-	border: 1px solid #ddd;
-	border-radius: 4px; }
-
-.work > h1 { text-align: center; }
-
-.work > .summary
-	{ max-width: 20rem;
-	margin: auto;
-	color: #444;
-	padding-bottom: 1rem;
-	border-bottom: 1px solid #aaa; }
-
-.results
-	{ display: flex;
-	flex-wrap: wrap;
-	justify-content: center; }
-
-.works article
-	{ background: #fff;
-	border: 1px solid #ddd;
-	border-bottom: 1px solid #ccc;
-	border-radius: 4px;
-	padding: 0.5rem;
-	margin: 0.5rem;
-	width: 20rem;
-	height: 20rem;
-	overflow-y: auto; }
-
-.works article:hover {
-	border-color: transparent;
-	box-shadow: 0 0 0 2px #f24; }
-
-.tags a
-	{ display: inline-block;
-	margin-right: 0.5em; }
-
-h1
-	{ margin: 0;
-	margin-bottom: 1rem; }
-
-@media (max-width: 50rem)
-	{ .works article
-		{ width: auto;
-		height: auto; }
-`
 
 function main()
-	{ G.route = new Observable(null)
-	empty(document)
-	document.appendChild(
-		E.of('html')
-		.child(E.of('head')
-			.child(E.of('title').text('AO3 SPA'))
-			.child(E.of('style').text(style)))
-		.child(E.of('body')
-			.child(E.of('div').add_class('router')
-				.on(G.route, me => x => me.clear().child(x))))
-		.element)
-	G.route.map(N(Works)) }
+	{ G.root = document.body
+	empty(G.root)
+	G.route = Observable.of(null)
+	compute_element(route => ({ children: route === null ? [] : [route] }), G.route)(G.root)
+	document.body.parentElement.appendChild(P(elem('style'), set('innerText')(STYLESHEET)))
+	G.route.map(just(WorkSearch())) }
 
-const tap = f => x => { f(x) ; return x }
-const ftap = f => x => { f(x) ; return false }
-const K = a => () => a
-const A = (x, ...fs) => fs.reduce((a,b)=>b(a), x)
-const AA = (...fs) => x => fs.reduce((a,b)=>b(a), x)
-const T = a => b => b(a)
-const map = f => x => x.map(f)
-const target = x => x.target
-const value = x => x.value
-const N = c => x => new c(x)
-const join = s => xs => xs.join(s)
-const serialise_params = AA(Object.entries, map(map(encodeURIComponent)), map(join('=')), join('&'))
-const then = f => p => p.then(f)
-const add = a => b => a+b
-const parseHTML = x => new DOMParser().parseFromString(x, 'text/html')
-const qs = x => e => e.querySelector(x)
-const qss = x => e => Array.from(e.querySelectorAll(x))
-const inner_text = x => x.innerText
-const inner_html = x => x.innerHTML
-const href = x => x.href
-const remove = x => x.remove()
-const empty = tap(x => { while(x.firstChild) x.firstChild.remove() })
-const maybe = f => x => x === null ? x : f(x)
-const nothing = f => x => x !== null ? x : f(x)
-const pluck = k => x => x[k]
-const trim = x => x.trim()
-
-const get = x => new Promise(yes =>
-	{ const req = new XMLHttpRequest()
-	req.onload = () => yes(req.responseText)
-	req.open('GET', x)
-	req.send() })
-
-const search = x => AA(serialise_params, add('?'), add(x), get)
-const search_works = AA(x => ({'utf8': '✓', 'work_search[query]': x}), search('/works/search'))
-
-class Observable
-	{ constructor(x)
-		{ this.x = x
-		this.watchers = new Set() }
-	static of (x) { return new Observable(x) }
-	map(f)
+function Observable(x)
+	{ this.x = x
+	this.watchers = new Set() }
+	Observable.of = function(x)
+		{ return new Observable(x) }
+	Observable.prototype.map = function(f)
 		{ this.x = f(this.x)
-		this.notify()
+		return this.notify() }
+	Observable.prototype.get = function() { return this.x }
+	Observable.prototype.notify = function()
+		{ for (const f of this.watchers) f(this.x)
 		return this }
-	get() { return this.x }
-	each(f) {
-		this.watchers.forEach(f)
-		return this }
-	notify() { return this.each(T(this.x)) }
-	watch(f)
+	Observable.prototype.watch = function(f)
 		{ this.watchers.add(f)
 		return this }
-	unwatch(f)
+	Observable.prototype.unwatch = function(f)
 		{ this.watchers.delete(f)
-		return this }}
+		return this }
 
-class E
-	{ constructor(x)
-		{ this.element = document.createElement(x)
-		this.watches = new Map()
-		this._children = new Set()
-		this.watchers = new Map() }
-	static of (x) { return new E(x) }
-	child(x)
-		{ x.parent = this
-		this._children.add(x)
-		this.element.appendChild(x.element)
-		return this }
-	children(xs)
-		{ this.clear()
-		xs.forEach(x => this.child(x))
-		return this }
-	clear() { return this.each(remove) }
-	remove()
-		{ this.clear()
-		if (this.parent)
-			this.parent._children.delete(this)
-		this.element.remove()
-		this.watches.forEach((f, o) => o.unwatch(f))
-		return this }
-	on(o, f)
-		{ const g = f(this)
-		o.watch(g)
-		if (this.watches.has(o))
-			this.watches.get(o).push(g)
-		else
-			this.watches.set(o, [g])
-		return this }
-	value(x)
-		{ this.element.value = x
-		return this }
-	focus(f)
-		{ this.element.onfocus = f
-		return this }
-	unfocus(f)
-		{ this.element.addEventListener('focusout', f)
-		return this }
-	style(x)
-		{ this.element.style = x
-		return this }
-	input(f)
-		{ this.element.oninput = f
-		return this }
-	keydown(f)
-		{ this.element.onkeydown = f
-		return this }
-	enter(f)
-		{ return this.keydown(x => x.keyCode === 13 ? f(x) : true) }
-	href(x)
-		{ this.element.href = x
-		return this }
-	text(x)
-		{ this.element.innerText = x
-		return this }
-	html(x)
-		{ this.element.innerHTML = x
-		return this }
-	click(f)
-		{ this.element.onclick = f
-		return this }
-	each(f)
-		{ for (const x of this._children.values())
-			f(x)
-		return this }
-	add_class(x)
-		{ this.element.classList.add(x)
-		return this }
-	bind(o)
-		{ this.element.value = o.get()
-		this.element.onchange = () => o.map(K(this.element.value))
-		this.on(o, me => x =>
-			{ if (me.element.value === x) return
-			me.element.value = x })
-		return this }
-	emit(event)
-		{ return x =>
-			{ if (this.watchers.has(event))
-				this.watchers.get(event).forEach(T(x))
-			return this }}
-	listen(event, f)
-		{ if (!this.watchers.has(event))
-			this.watchers.set(event, [])
-		this.watchers.get(event).push(f)
-		return this }}
+function multi_watch(f, ...xs)
+	{ const cb = () => f(...xs.map(x => x.get()))
+	for (const x of xs) x.watch(cb) }
 
-class Tag extends E
-	{ constructor(x)
-		{ super('a')
-		this.text(x).href(`/tags/${encodeURIComponent(x)}/works`) }}
+const compute_element = (f, ...xs) => tap(e => multi_watch((...xs) =>
+	{ const o = f(...xs)
+	for (const [k, v] of Object.entries(o))
+		{ switch (k)
+			{ case 'class':
+				e.className = v
+				break
+			case 'children':
+				empty(e)
+				for (const c of v) e.appendChild(c)
+				break
+			case 'text':
+				e.innerText = v
+				break
+			case 'html':
+				e.innerHTML = v
+				break }}},
+	...xs))
 
-class SearchResult extends E
-	{ constructor(x)
-		{ super('article')
-		.child(E.of('h1')
-			.child(E.of('a')
-				.text(x.title)
-				.href(x.href)
-				.click(SearchResult.title_clicked)))
-		.child(E.of('p').html(x.summary))
-		.child(E.of('div')
-			.add_class('tags')
-			.children(
-				x.tags.map(x =>
-					new Tag(x)
-					.click(ftap(this.emit('tag')))))) }
+// business logic
+const STYLESHEET = `
+input
+	{ width: 20em;
+	display: block;
+	margin: auto; }
+#results
+	{ display: flex;
+	flex-wrap: wrap;
+	justify-content: center }
+#results article
+	{ width: 30em;
+	height: 30ex;
+	overflow: auto;
+	margin: 1em;
+	padding: 1em;
+	border: 1px solid gray; }
+`
 
-	static title_clicked(x)
-		{ get(x.target.href).then(AA(
-			parseHTML,
-			N(Work),
-			K,
-			map,
-			T(G.route)))
-		return false }}
+const Anonymous = Symbol()
 
-class Work extends E
-	{ constructor(x)
-		{ super('div').add_class('work')
-		const work = Work.parse_work(x)
-		this.child(E.of('h1').text(work.title))
-		.child(E.of('aside').add_class('summary').html(work.summary))
-		.child(E.of('main').html(work.content)) }
+const loc = x => 'https://archiveofourown.org' + x
 
-	static parse_work(x)
-		{ return {
-			title: A(x,
-				qs('#workskin h2.title'),
-				maybe(AA(inner_text, trim)),
-				nothing(K(''))),
-			summary: A(x,
-				qs('#workskin div.summary blockquote.userstuff'),
-				maybe(inner_html),
-				nothing(K(''))),
-			author: A(x,
-				qs('#workskin div.preface h3.byline a[rel="author"]'),
-				maybe(AA(inner_text, trim)),
-				nothing(K(Anonymous))),
-			content: A(x,
-				qs('#workskin #chapters div.userstuff'),
-				maybe(AA(inner_html)),
-				nothing(K(Anonymous))), }}}
+const parse_work = x =>
+	({ href: P(x,
+		qs('h4.heading a'),
+		maybe(pluck('href')),
+		nothing(just(''))),
+	title: P(x,
+		qs('h4.heading a'),
+		maybe(pluck('innerText')),
+		nothing(just(''))),
+	author: P(x,
+		qs('h4.heading a[rel="author"]'),
+		maybe(pluck('innerText')),
+		nothing(just(Anonymous))),
+	summary: P(x,
+		qs('.summary'),
+		maybe(pluck('innerHTML')),
+		nothing(just(''))),
+	tags: P(x,
+		qss('ul.tags a.tag'),
+		map(pluck('innerHTML')),
+		Array.from),
+	date: P(x,
+		qs('.datetime'),
+		maybe(pluck('innerText')),
+		nothing(just(''))), })
 
-class Works extends E
-	{ constructor(x)
-		{ super('div')
-		const results = new Observable(null)
-		const text = new Observable(null)
+const parse_results = PP(qss('li.work'), map(parse_work), Array.from)
 
-		const onenter = AA(
-			target,
-			value,
-			search_works,
-			then(AA
-				(parseHTML,
-				qss('li.work'),
-				map(Works.parse_work),
-				K,
-				map,
-				T(results))))
+const render_results = x => P(elem('article'),
+	child(P(elem('h1'), set('innerText')(x.title))),
+	child(P(elem('p'), set('innerHTML')(x.summary))))
 
-		const tag_clicked = ftap(AA(
-			target,
-			tap(AA(inner_text, K, map, T(text))),
-			href, get, then(AA
-				(parseHTML,
-				qss('li.work'),
-				map(Works.parse_work),
-				K,
-				map,
-				T(results)))))
+function WorkSearch()
+	{ const results = new Observable(null)
 
-		this.add_class('works')
-		.child(E.of('input').enter(onenter).bind(text))
-		.child(E.of('main').add_class('results')
-			.on(results, me => xs => me.children(
-				xs.map(x =>
-					new SearchResult(x)
-					.listen('tag', tag_clicked)))))
+	const get_results = x =>
+		search('/works/search', {'utf8': '✓', 'work_search[query]': x.target.value })
+		.then(text)
+		.then(PP(
+			parse_html,
+			parse_results,
+			map(render_results),
+			Array.from,
+			just,
+			results.map.bind(results)))
 
-		results.map(K(x instanceof Array ? x : [])) }
-
-	static parse_work(x)
-		{ return {
-			href: A(x,
-				qs('h4.heading a'),
-				maybe(href),
-				nothing(K(''))),
-			title: A(x,
-				qs('h4.heading a'),
-				maybe(inner_text),
-				nothing(K(''))),
-			author: A(x,
-				qs('h4.heading a[rel="author"]'),
-				maybe(inner_text),
-				nothing(K(Anonymous))),
-			summary: A(x,
-				qs('.summary'),
-				maybe(inner_html),
-				nothing(K(''))),
-			tags: A(x,
-				qss('ul.tags a.tag'),
-				map(inner_text)),
-			date: A(x,
-				qs('.datetime'),
-				maybe(inner_text),
-				nothing(K(''))), }}}
+	return P(elem('div'),
+		child(P(elem('input'),
+			set('onchange')(get_results))),
+		child(P(elem('div'),
+			set('id')('results'),
+			compute_element(x => ({ children: x }), results)))) }
 
 main()
 })()
