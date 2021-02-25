@@ -19,10 +19,19 @@ const map = f => function* (xs) { let i = 0 ; for (const x of xs) yield f(x, i++
 const filter = f => function* (xs) { let i = 0 ; for (const x of xs) yield f(x, i++, xs) }
 const reduce = f => i => xs => { let a = i ; for (const x of xs) a = f(a)(x) ; return a }
 const each = f => tap(xs => { let i = 0 ; for (const x of xs) f(x, i++, xs) })
+const intersperse = a => function* (xs)
+	{ let f = false
+	for (const x of xs)
+		{ if (f) yield a()
+		else f = true
+		yield x }}
+const extend = a => function* (b) { yield* b ; yield* a }
+const append = a => function* (b) { yield* b ; yield a }
 
 // application, composition, combinators
 const B = a => b => c => a(b(c))
 const B1 = a => b => c => d => a(b(c)(d))
+const C = a => b => c => a(c)(b)
 const T = a => b => b(a) // thrush
 const P = (x, ...fs) => reduce(T)(x)(fs) // pipe
 const PP = (...fs) => x => P(x, ...fs) // piped composition
@@ -58,7 +67,9 @@ const search = (x, q) => fetch(search_url(x,q))
 const parse_html = x => new DOMParser().parseFromString(x, 'text/html')
 const empty = tap(x => { while(x.firstChild) x.firstChild.remove() })
 const elem = x => document.createElement(x)
+const telem = x => document.createTextNode(x)
 const child = c => tap(x => x.appendChild(c))
+const children = cs => tap(x => { for (const c of cs) x.appendChild(c) })
 const qs = q => (d=document) => d.querySelector(q)
 const qss = q => (d=document) => d.querySelectorAll(q)
 
@@ -122,13 +133,17 @@ const compute_element = (f, ...xs) => tap(e => multi_watch((...xs) =>
 
 // business logic
 const STYLESHEET = `
-a { color: #933; }
-p { margin: 0; margin-bottom: 1em; }
+a { color: #933; text-decoration: underline; cursor: pointer; }
+hr { border: none; outline: none; color: inherit; }
+hr:after { content: '⁂'; display: block; text-align:center; font-size: 2rem; }
+:is(h1,h2,h3,h4,h5,h6) > a { color: inherit; }
 html, body, #root { height: 100vh; }
 html
 	{ line-height: 1.5em;
+	font-family: sans-serif;
 	background: #eee;
-	font-size: 18px; }
+	font-size: 18px;
+	word-wrap: break-word; }
 body { margin: 0; }
 #root
 	{ margin-left: 3.5rem;
@@ -177,11 +192,19 @@ input:focus { outline: none; }
 	justify-content: center }
 #results article
 	{ width: 20em;
-	height: 30ex;
+	height: 20em;
 	overflow: auto;
-	margin: 1em;
-	padding: 1em; }
-#results article h1 { margin: 0; }
+	margin: 1em; }
+#results article > * { padding: 0.5em; }
+#results article :is(h1,h2,h3,h4)
+	{ margin: 0;
+	font-weight: inherit; }
+#results article h1 { background: #933; font-size: inherit; }
+#results article h2 { background: #b55; }
+#results article h3 { font-weight: bold; }
+#results article :is(h1,h2) { color: #fff; }
+#results article :is(h3,h4) { color: #933; }
+#results article :is(h2,h3,h4) { font-size: 80%; }
 section.work
 	{ max-width: 40em;
 	background-color: #fff;
@@ -222,19 +245,24 @@ function WorkSearch()
 			maybe(pluck('innerText')),
 			nothing(just(Anonymous))),
 		summary: P(x,
-			qs('.summary'),
+			qs('.summary p'),
 			maybe(pluck('innerHTML')),
 			nothing(just(''))),
+		required_tags: P(x,
+			qss('.required-tags .text'),
+			map(pluck('innerText'))),
 		tags: P(x,
-			qss('ul.tags a.tag'),
-			map(pluck('innerHTML')),
-			Array.from),
+			qss('ul.tags :is(.relationships, .characters, .freeforms) a.tag'),
+			map(pluck('innerText'))),
+		fandoms: P(x,
+			qss('.fandoms a.tag'),
+			map(pluck('innerText'))),
 		date: P(x,
 			qs('.datetime'),
 			maybe(pluck('innerText')),
 			nothing(just(''))), })
 
-	const parse_results = PP(qss('li.work'), map(parse_work), Array.from)
+	const parse_results = PP(qss('li.work'), map(parse_work))
 
 	const get_results = x => url.map(just(search_url('/works/search', {'utf8': '✓', 'work_search[query]': x.target.value })))
 
@@ -243,8 +271,23 @@ function WorkSearch()
 			child(P(elem('a'),
 				set('href')(x.href),
 				set('onclick')(falsify(() => G.route.map(just(WorkDisplay(x.href))))),
-				set('innerText')(x.title))))),
-		child(P(elem('p'), set('innerHTML')(x.summary))))
+				set('innerText')(x.title))),
+			child(telem(' by ')),
+			child(P(elem('a'),
+				set('innerText')(x.author === Anonymous ? 'Anonymous' : x.author))))),
+		child(P(elem('h2'),
+			children(P(x.fandoms,
+				map(x => P(elem('a'), set('innerText')(x))),
+				intersperse(() => telem(', ')))))),
+		child(P(elem('h3'),
+			children(P(x.required_tags,
+				map(x => P(elem('a'), set('innerText')(x))),
+				intersperse(() => telem(', ')))))),
+		child(P(elem('div'), set('innerHTML')(x.summary))),
+		child(P(elem('h4'),
+			children(P(x.tags,
+				map(x => P(elem('a'), set('innerText')(x))),
+				intersperse(() => telem(', ')))))))
 
 	url.watch(PP(fetch,
 		then(text),
