@@ -169,6 +169,7 @@ section.search article,
 section.work > *
 	{ box-shadow: 0px 3px 5px rgba(0,0,0,0.2);
 	border-radius: 0.25rem;
+	overflow: hidden;
 	transition: box-shadow ease 0.5s, background-color ease 0.5s; }
 input, section.search article { background-color: #f8f8f8; }
 input:hover,
@@ -208,8 +209,8 @@ section.search article :is(h2,h3,h4) { font-size: 80%; }
 section.search article h4 span { display: inline-block; margin-right: 1em; }
 section.work { max-width: 40em; }
 section.work > *+* { margin-top: 1em; }
-section.work > * { background-color: #fff; }
-section.work header > * { padding: 0.5rem 1rem; }
+section.work > * { background-color: #fff }
+section.work header > * { padding: 0.5rem 1rem }
 section.work header > div { padding: 1rem; }
 section.work main { padding: 1rem; }
 section.work header :is(h1,h2) { text-align: center; font-weight: inherit; }
