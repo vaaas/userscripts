@@ -233,6 +233,7 @@ section.work nav { columns: 15em; }
 const Anonymous = Symbol()
 
 const loc = x => 'https://archiveofourown.org' + x
+const scroll_to_top = () => document.querySelector('#root').scroll(0,0)
 
 function Root(route)
 	{ return P(elem('section'),
@@ -247,6 +248,7 @@ function Nav()
 
 function WorkSearch()
 	{ const results = new Observable(null)
+	const pagination = new Observable(null)
 	const url = new Observable(null)
 
 	const parse_work = x =>
@@ -289,6 +291,11 @@ function WorkSearch()
 
 	const parse_results = PP(qss('li.work'), map(parse_work))
 
+	const parse_pagination = x => ({
+		next: P(x, qs('a[rel="next"]'), maybe(pluck('href'))),
+		prev: P(x, qs('a[rel="prev"]'), maybe(pluck('href'))),
+	})
+
 	const get_results = x => url.map(K(search_url('/works/search', {'utf8': '✓', 'work_search[query]': x.target.value })))
 
 	const render_results = x => P(elem('article'),
@@ -325,22 +332,43 @@ function WorkSearch()
 				map(x => P(elem('a'), set('innerText')(x))),
 				intersperse(() => telem(', ')))))))
 
-	url.watch(PP(fetch,
+	const render_pagination = x => [
+		x.prev ?
+			P(elem('a'),
+				set('innerText')('Back'),
+				set('onclick')(falsify(() => url.map(K(x.prev)))),
+			) : null,
+		x.next ?
+			P(elem('a'),
+				set('innerText')('Next'),
+				set('onclick')(falsify(() => url.map(K(x.next)))),
+			) : null,
+	].filter(isnt(null))
+
+	url.watch(PP(log, fetch,
 		then(text),
 		then(PP(
 			parse_html,
-			parse_results,
-			map(render_results),
-			Array.from,
-			K,
-			results.map.bind(results)))))
+			tap(PP(
+				parse_results,
+				map(render_results),
+				Array.from,
+				K,
+				results.map.bind(results))),
+			tap(PP(
+				parse_pagination,
+				K,
+				pagination.map.bind(pagination))),
+			scroll_to_top))))
 
 	return P(elem('section'),
 		set('className')('search'),
 		child(P(elem('input'),
 			set('onchange')(get_results))),
 		child(P(elem('section'),
-			compute_element(x => ({ children: x }), results)))) }
+			compute_element(x => ({ children: x }), results))),
+		child(P(elem('nav'),
+			compute_element(x => ({ children: render_pagination(x) }), pagination)))) }
 
 function WorkDisplay(x=null)
 	{ const url = new Observable(null)
@@ -394,7 +422,7 @@ function WorkDisplay(x=null)
 			render_work,
 			K,
 			results.map.bind(results),
-			() => document.querySelector('#root').scroll(0,0)))))
+			scroll_to_top))))
 
 	url.map(K(x))
 
