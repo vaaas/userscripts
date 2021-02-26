@@ -57,6 +57,11 @@ const nothing = when(is(null))
 // objects
 const set = k => v => tap(o => o[k] = v)
 const pluck = k => x => x[k]
+const form_data = x =
+	{ const data = new FormData()
+	for (const [k, v] of Object.entries(x))
+		data.append(k, v)
+	return data }
 
 // strings
 const trim = x => x.trim()
