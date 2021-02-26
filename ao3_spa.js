@@ -14,6 +14,11 @@
 'use strict'
 
 // prelude
+// taps
+const tap = f => x => { f(x) ; return x }
+const always = v => f => x => { f(x) ; return v }
+const falsify = always(false)
+
 // loops
 const map = f => function* (xs) { let i = 0 ; for (const x of xs) yield f(x, i++, xs) }
 const filter = f => function* (xs) { let i = 0 ; for (const x of xs) if (f(x, i++, xs)) yield x }
@@ -27,6 +32,7 @@ const intersperse = a => function* (xs)
 		yield x }}
 const extend = a => function* (b) { yield* b ; yield* a }
 const append = a => function* (b) { yield* b ; yield a }
+const find_index = f => xs => { let i = -1 ; for (const x of xs) if (f(x, ++i, xs)) return i ; return null }
 
 // application, composition, combinators
 const B = a => b => c => a(b(c))
@@ -47,11 +53,6 @@ const isnt = B1(not)(is)
 const when = cond => then => x => cond(x) ? then(x) : x
 const maybe = when(isnt(null))
 const nothing = when(is(null))
-
-// taps
-const tap = f => x => { f(x) ; return x }
-const always = v => f => x => { f(x) ; return v }
-const falsify = always(false)
 
 // objects
 const set = k => v => tap(o => o[k] = v)
@@ -139,7 +140,7 @@ const compute_element = (f, ...xs) => tap(e => multi_watch((...xs) =>
 const STYLESHEET = `
 p:first-of-type { margin-top: 0; }
 p:last-of-type { margin-bottom: 0; }
-a { color: #933; text-decoration: underline; cursor: pointer; }
+a { color: #933; text-decoration: underline; cursor: pointer; text-underline-offset: 0.25em }
 hr { border: none; outline: none; color: inherit; }
 hr:after { content: '⁂'; display: block; text-align:center; font-size: 2rem; }
 :is(h1,h2,h3,h4,h5,h6) > a { color: inherit; }
@@ -153,7 +154,7 @@ html
 body { margin: 0; }
 #root { margin-left: 3.5rem; overflow: auto; }
 #root > section { margin: 1rem auto; }
-nav
+body > nav
 	{ position: absolute;
 	background-color: #933;
 	width: 3rem;
@@ -162,8 +163,8 @@ nav
 	text-align: center;
 	top: 0; left: 0; bottom: 0;
 	box-shadow: 5px 0px 10px rgba(0,0,0,0.3); }
-nav > div { width: 3rem; line-height: 3rem; }
-nav > div:hover { background-color: rgba(255,255,255,0.5); cursor: pointer; }
+body > nav > div { width: 3rem; line-height: 3rem; }
+body > nav > div:hover { background-color: rgba(255,255,255,0.5); cursor: pointer; }
 input,
 section.search article,
 section.work > *
@@ -210,12 +211,14 @@ section.search article h4 span { display: inline-block; margin-right: 1em; }
 section.work { max-width: 40em; }
 section.work > *+* { margin-top: 1em; }
 section.work > * { background-color: #fff }
-section.work header > * { padding: 0.5rem 1rem }
-section.work header > div { padding: 1rem; }
+section.work header > * { padding: 1rem }
+section.work header > :is(h1,h2,h3) { padding: 0.5rem 1rem }
 section.work main { padding: 1rem; }
 section.work header :is(h1,h2) { text-align: center; font-weight: inherit; }
 section.work header h1 { font-size: 150%; background-color: #933; }
 section.work header h2 { font-size: inherit; background-color: #b55; }
+section.work header:nth-of-type(2) h1:hover { text-decoration: underline; text-decoration-offset: 0.25em; cursor: pointer; }
+.hidden { display: none; }
 `
 
 const Anonymous = Symbol()
@@ -333,22 +336,36 @@ function WorkSearch()
 function WorkDisplay(x=null)
 	{ const url = new Observable(null)
 	const results = new Observable(null)
+	const chapters = new Observable(false)
 
 	const parse_work = x => ({
 		title: P(x, qs('.title.heading'), pluck('innerText'), trim),
 		summary: P(x, qs('.preface .summary blockquote'), maybe(pluck('innerHTML'))),
 		author: P(x, qs('a[rel="author"]'), pluck('innerText'), trim),
 		body: P(x, qs('#chapters .userstuff'), pluck('innerHTML')),
+		chapters: P(x, qss('#chapter_index option'), map(x => [ x.innerText, x.value ]), Array.from),
+		current_index: P(x, qss('#chapter_index option'), find_index(x => x.selected === true)),
 	})
 
 	const render_work = x => [
 		P(elem('header'),
 			child(P(elem('h1'), set('innerText')(x.title))),
 			child(P(elem('h2'), set('innerText')(x.author))),
-			when(() => x.summary !== null)
-				(PP(child(P(elem('div'), set('innerHTML')(x.summary)))))),
+			tap(e => { if (x.summary !== null)
+				P(e, child(P(elem('div'), set('innerHTML')(x.summary))))})),
+		x.chapters.length > 0 ?
+			P(elem('header'),
+				child(P(elem('h1'),
+					set('onclick')(() => chapters.map(not)),
+					child(telem(x.chapters[x.current_index][0])))),
+				child(P(elem('nav'),
+					set('className')('hidden'),
+					compute_element(x => ({ class: x ? '' : 'hidden' }), chapters),
+					children(P(x.chapters,
+						map(c => P(elem('a'), set('innerText')(c[0])))))))
+			) : null,
 		P(elem('main'), set('innerHTML')(x.body)),
-	]
+	].filter(isnt(null))
 
 	url.watch(PP(fetch,
 		then(text),
