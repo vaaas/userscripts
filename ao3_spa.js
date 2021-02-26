@@ -57,7 +57,7 @@ const nothing = when(is(null))
 // objects
 const set = k => v => tap(o => o[k] = v)
 const pluck = k => x => x[k]
-const form_data = x =
+const form_data = x =>
 	{ const data = new FormData()
 	for (const [k, v] of Object.entries(x))
 		data.append(k, v)
@@ -253,7 +253,6 @@ function Nav()
 
 function WorkSearch()
 	{ const results = new Observable(null)
-	const pagination = new Observable(null)
 	const url = new Observable(null)
 
 	const parse_work = x =>
@@ -350,20 +349,12 @@ function WorkSearch()
 			) : null,
 	].filter(isnt(null))
 
-	url.watch(PP(log, fetch,
+	url.watch(PP(fetch,
 		then(text),
 		then(PP(
 			parse_html,
-			tap(PP(
-				parse_results,
-				map(render_results),
-				Array.from,
-				K,
-				results.map.bind(results))),
-			tap(PP(
-				parse_pagination,
-				K,
-				pagination.map.bind(pagination))),
+			K,
+			results.map.bind(results),
 			scroll_to_top))))
 
 	return P(elem('section'),
@@ -371,9 +362,9 @@ function WorkSearch()
 		child(P(elem('input'),
 			set('onchange')(get_results))),
 		child(P(elem('section'),
-			compute_element(x => ({ children: x }), results))),
+			compute_element(x => ({ children: P(x, parse_results, map(render_results)) }), results))),
 		child(P(elem('nav'),
-			compute_element(x => ({ children: render_pagination(x) }), pagination)))) }
+			compute_element(x => ({ children: P(x, parse_pagination, render_pagination) }), results)))) }
 
 function WorkDisplay(x=null)
 	{ const url = new Observable(null)
@@ -402,7 +393,7 @@ function WorkDisplay(x=null)
 					set('onclick')(() => chapters.map(not)),
 					child(telem(x.chapters[x.current_index][0])))),
 				child(P(elem('nav'),
-					set('className')('hidden'),
+					set('className')(chapters.get() ? '' : 'hidden'),
 					compute_element(x => ({ class: x ? '' : 'hidden' }), chapters),
 					children(P(x.chapters,
 						map((c,i) => P(elem('a'),
