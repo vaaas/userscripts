@@ -94,24 +94,30 @@ function main()
 	body.appendChild(Root(G.route))
 	G.route.map(K(WorkSearch())) }
 
-function Observable(x)
-	{ this.x = x
-	this.watchers = new Set() }
-	Observable.of = function(x)
+class Observable
+	{ constructor(x=null)
+		{ this.x = x
+		this.watchers = new Set() }
+	static of(x)
 		{ return new Observable(x) }
-	Observable.prototype.map = function(f)
+	map(f)
 		{ this.x = f(this.x)
 		return this.notify() }
-	Observable.prototype.get = function() { return this.x }
-	Observable.prototype.notify = function()
+	get() { return this.x }
+	notify()
 		{ for (const f of this.watchers) f(this.x)
 		return this }
-	Observable.prototype.watch = function(f)
+	watch(f)
 		{ this.watchers.add(f)
 		return this }
-	Observable.prototype.unwatch = function(f)
+	unwatch(f)
 		{ this.watchers.delete(f)
-		return this }
+		return this }}
+
+class Computed extends Observable
+	{ constructor(f, ...xs)
+		{ super()
+		multi_watch((...xs) => this.x = f(...xs), ...xs) }}
 
 function multi_watch(f, ...xs)
 	{ const cb = () => f(...xs.map(x => x.get()))
@@ -219,6 +225,9 @@ section.work header h1 { font-size: 150%; background-color: #933; }
 section.work header h2 { font-size: inherit; background-color: #b55; }
 section.work header:nth-of-type(2) h1:hover { text-decoration: underline; text-decoration-offset: 0.25em; cursor: pointer; }
 .hidden { display: none; }
+.bold { font-weight: bold; }
+section.work nav a { display: block; }
+section.work nav { columns: 15em; }
 `
 
 const Anonymous = Symbol()
@@ -337,12 +346,13 @@ function WorkDisplay(x=null)
 	{ const url = new Observable(null)
 	const results = new Observable(null)
 	const chapters = new Observable(false)
+	const work_id = new Computed(x => x.match(/works\/([0-9]+)/)[1], url)
 
 	const parse_work = x => ({
 		title: P(x, qs('.title.heading'), pluck('innerText'), trim),
 		summary: P(x, qs('.preface .summary blockquote'), maybe(pluck('innerHTML'))),
 		author: P(x, qs('a[rel="author"]'), pluck('innerText'), trim),
-		body: P(x, qs('#chapters .userstuff'), pluck('innerHTML')),
+		body: P(x, qs('#chapters .userstuff'), tap(PP(qs('h3#work'), maybe(x=>x.remove()))), pluck('innerHTML')),
 		chapters: P(x, qss('#chapter_index option'), map(x => [ x.innerText, x.value ]), Array.from),
 		current_index: P(x, qss('#chapter_index option'), find_index(x => x.selected === true)),
 	})
@@ -362,9 +372,18 @@ function WorkDisplay(x=null)
 					set('className')('hidden'),
 					compute_element(x => ({ class: x ? '' : 'hidden' }), chapters),
 					children(P(x.chapters,
-						map(c => P(elem('a'), set('innerText')(c[0])))))))
+						map((c,i) => P(elem('a'),
+							set('className')(i === x.current_index ? 'bold' : ''),
+							set('onclick')(falsify(() => url.map(K(loc(`/works/${work_id.get()}/chapters/${c[1]}`))))),
+							set('innerText')(c[0])))))))
 			) : null,
 		P(elem('main'), set('innerHTML')(x.body)),
+		x.chapters.length > 0 && x.current_index + 1 < x.chapters.length ?
+			P(elem('footer'),
+				child(P(elem('a'),
+					set('onclick')(falsify(() => url.map(K(loc(`/works/${work_id.get()}/chapters/${x.chapters[x.current_index+1][1]}`))))),
+					set('innerText')('Next')))
+			): null
 	].filter(isnt(null))
 
 	url.watch(PP(fetch,
@@ -374,7 +393,8 @@ function WorkDisplay(x=null)
 			parse_work,
 			render_work,
 			K,
-			results.map.bind(results)))))
+			results.map.bind(results),
+			() => document.querySelector('#root').scroll(0,0)))))
 
 	url.map(K(x))
 
