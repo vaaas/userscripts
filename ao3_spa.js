@@ -24,15 +24,15 @@ const map = f => function* (xs) { let i = 0 ; for (const x of xs) yield f(x, i++
 const filter = f => function* (xs) { let i = 0 ; for (const x of xs) if (f(x, i++, xs)) yield x }
 const reduce = f => i => xs => { let a = i ; for (const x of xs) a = f(a)(x) ; return a }
 const each = f => tap(xs => { let i = 0 ; for (const x of xs) f(x, i++, xs) })
+const find_index = f => xs => { let i = -1 ; for (const x of xs) if (f(x, ++i, xs)) return i ; return null }
+const flatten = function* (xs) { for (const x of xs) yield* x }
 const intersperse = a => function* (xs)
 	{ let f = false
 	for (const x of xs)
 		{ if (f) yield a()
 		else f = true
 		yield x }}
-const extend = a => function* (b) { yield* b ; yield* a }
-const append = a => function* (b) { yield* b ; yield a }
-const find_index = f => xs => { let i = -1 ; for (const x of xs) if (f(x, ++i, xs)) return i ; return null }
+const sort = f => xs => Array.from(xs).sort(f)
 
 // application, composition, combinators
 const B = a => b => c => a(b(c))
@@ -62,9 +62,13 @@ const form_data = x =>
 	for (const [k, v] of Object.entries(x))
 		data.append(k, v)
 	return data }
+const N = o => x => new o(x)
 
 // strings
 const trim = x => x.trim()
+
+// sort
+const alphabetically = a => b => a<b ? -1 : 1
 
 // promises
 const then = f => x => x.then(f)
@@ -86,6 +90,7 @@ const qss = q => (d=document) => d.querySelectorAll(q)
 const log = tap(console.log)
 
 const G = {}
+const EMSP = ' '
 
 function main()
 	{ G.route = Observable.of(null)
@@ -95,9 +100,8 @@ function main()
 	const body = document.body
 	empty(body)
 	body.parentElement.appendChild(P(elem('style'), set('innerText')(STYLESHEET)))
-	body.appendChild(Nav())
-	body.appendChild(Root(G.route))
-	G.route.map(K(WorkSearch())) }
+	body.appendChild(Header())
+	body.appendChild(Root(G.route)) }
 
 class Observable
 	{ constructor(x=null)
@@ -151,11 +155,22 @@ const compute_element = (f, ...xs) => tap(e => multi_watch((...xs) =>
 const STYLESHEET = `
 p:first-of-type { margin-top: 0; }
 p:last-of-type { margin-bottom: 0; }
-a { color: #933; text-decoration: underline; cursor: pointer; text-underline-offset: 0.25em }
+a
+	{ color: #933;
+	text-decoration: underline;
+	cursor: pointer;
+	text-underline-offset: 0.25em }
+a:hover { text-decoration: underline !important; }
 hr { border: none; outline: none; color: inherit; }
-hr:after { content: '⁂'; display: block; text-align:center; font-size: 2rem; }
+hr:after
+	{ content: '⁂';
+	display: block;
+	text-align:center;
+	font-size: 2rem; }
+h1,h2,h3,h4,h5,h6 { margin: 0; }
 :is(h1,h2,h3,h4,h5,h6) > a { color: inherit; }
-html, body, #root { height: 100vh; }
+input { font-size: inherit; }
+html, body { height: 100vh; }
 html
 	{ line-height: 1.5em;
 	font-family: sans-serif;
@@ -163,76 +178,33 @@ html
 	font-size: 18px;
 	word-wrap: break-word; }
 body { margin: 0; }
-#root { margin-left: 3.5rem; overflow: auto; }
 #root > section { margin: 1rem auto; }
-body > nav
-	{ position: absolute;
-	background-color: #933;
-	width: 3rem;
-	font-size: 1.5em;
-	padding-top: 0.25rem;
-	text-align: center;
-	top: 0; left: 0; bottom: 0;
-	box-shadow: 5px 0px 10px rgba(0,0,0,0.3); }
-body > nav > div { width: 3rem; line-height: 3rem; }
-body > nav > div:hover { background-color: rgba(255,255,255,0.5); cursor: pointer; }
-input,
-section.search article,
-section.work > *
-	{ box-shadow: 0px 3px 5px rgba(0,0,0,0.2);
-	border-radius: 0.25rem;
-	overflow: hidden;
-	transition: box-shadow ease 0.5s, background-color ease 0.5s; }
-input, section.search article { background-color: #f8f8f8; }
-input:hover,
-input:focus,
-section.search article:hover
-	{ box-shadow: 0px 7px 20px rgba(0,0,0,0.4);
-	background-color: #fff; }
-input
-	{ outline: none;
-	border: none;
-	font-size: 1rem;
-	padding: 0.5rem; }
-section.search input
-	{ width: 21em;
-	display: block;
+body > header { margin-top: 1em; }
+body > header input
+	{ display: block;
 	margin: auto; }
-input:focus { outline: none; }
-section.search section
-	{ display: flex;
-	flex-wrap: wrap;
-	justify-content: center }
-section.search article
-	{ width: 22em;
-	height: 22em;
+section.list { columns: 25em; }
+section.list article
+	{ background: #fff;
+	padding: 1em;
+	display: inline-block;
+	border-radius: 0.25rem;
+	max-height: 30em;
 	overflow: auto;
-	margin: 1em; }
-section.search article > * { padding: 0.5rem; }
-:is(section.search article, section.work header) :is(h1,h2,h3,h4)
-	{ margin: 0; font-weight: inherit; }
-section.search article h1 { background-color: #933; font-size: inherit; }
-section.search article h2 { background-color: #b55; }
-section.search article h3 { font-weight: bold; }
-:is(section.search article, section.work header) :is(h1,h2)
-	{ color: #fff; }
-section.search article h3, section.search article h4:nth-of-type(2) { color: #933; }
-section.search article :is(h2,h3,h4) { font-size: 80%; }
-section.search article h4 span { display: inline-block; margin-right: 1em; }
-section.work { max-width: 40em; }
-section.work > *+* { margin-top: 1em; }
-section.work > * { background-color: #fff }
-section.work header > * { padding: 1rem }
-section.work header > :is(h1,h2,h3) { padding: 0.5rem 1rem }
-section.work main { padding: 1rem; }
-section.work header :is(h1,h2) { text-align: center; font-weight: inherit; }
-section.work header h1 { font-size: 150%; background-color: #933; }
-section.work header h2 { font-size: inherit; background-color: #b55; }
-section.work header:nth-of-type(2) h1:hover { text-decoration: underline; text-decoration-offset: 0.25em; cursor: pointer; }
-.hidden { display: none; }
-.bold { font-weight: bold; }
-section.work nav a { display: block; }
-section.work nav { columns: 15em; }
+	margin-bottom: 1em; }
+section.list article :is(h1,h2,h3)
+	{ font-size: 0.8rem;
+	line-height: 0.8rem;
+	font-weight: inherit; }
+section.list article h1 { font-size: 1.5rem; line-height: 1.5em; margin-bottom: 0.5em; }
+section.list article > div { margin: 1em 0; }
+section.list article h2 a { text-decoration: none; }
+section.list article h3 { display: flex; justify-content: space-between; }
+a.freeform { color: #0097a7; }
+a.fandom { color: #7b1fa2; }
+a.character { color: #388e3c; }
+a.relationship { color: #ffa000; }
+a.required { color: #d32f2f; }
 `
 
 const Anonymous = Symbol()
@@ -245,13 +217,18 @@ function Root(route)
 		set('id')('root'),
 		compute_element(route => ({ children: route === null ? [] : [route] }), route)) }
 
-function Nav()
-	{ return P(elem('nav'),
-		child(P(elem('div'),
-			set('innerText')('🔍'),
-			set('onclick')(() => G.route.map(K(WorkSearch())))))) }
+function Header()
+	{ const url = x => search_url('/works/search', {'utf8': '✓', 'work_search[query]': x })
+	return P(elem('header'),
+		child(P(elem('input'),
+			set('onchange')
+			(PP(x => x.target.value,
+				url,
+				N(WorkList),
+				K,
+				G.route.map.bind(G.route))))))}
 
-function WorkSearch()
+function WorkList(x)
 	{ const results = new Observable(null)
 	const url = new Observable(null)
 
@@ -269,18 +246,30 @@ function WorkSearch()
 			maybe(pluck('innerText')),
 			nothing(K(Anonymous))),
 		summary: P(x,
-			qs('.summary p'),
+			qs('.summary'),
 			maybe(pluck('innerHTML')),
 			nothing(K(''))),
-		required_tags: P(x,
-			qss('.required-tags .text'),
-			map(pluck('innerText'))),
-		tags: P(x,
-			qss('ul.tags :is(.relationships, .characters, .freeforms) a.tag'),
-			map(pluck('innerText'))),
-		fandoms: P(x,
-			qss('.fandoms a.tag'),
-			map(pluck('innerText'))),
+		tags:
+			{ fandoms: P(x,
+				qss('.fandoms a.tag'),
+				map(pluck('innerText')),
+				sort(alphabetically)),
+			required: P(x,
+				qss('.required-tags .text'),
+				map(pluck('innerText')),
+				sort(alphabetically)),
+			relationships: P(x,
+				qss('ul.tags .relationships a.tag'),
+				map(pluck('innerText')),
+				sort(alphabetically)),
+			characters: P(x,
+				qss('ul.tags .characters a.tag'),
+				map(pluck('innerText')),
+				sort(alphabetically)),
+			freeforms: P(x,
+				qss('ul.tags .freeforms a.tag'),
+				map(pluck('innerText')),
+				sort(alphabetically)), },
 		words: P(x, qs('dd.words'), maybe(PP(pluck('innerText'), parseFloat)), nothing(K(0))),
 		language: P(x, qs('dd.language'), maybe(pluck('innerText')), nothing(K('English'))),
 		chapters: P(x, qs('dd.chapters'), maybe(pluck('innerText'))),
@@ -300,8 +289,6 @@ function WorkSearch()
 		prev: P(x, qs('a[rel="prev"]'), maybe(pluck('href'))),
 	})
 
-	const get_results = x => url.map(K(search_url('/works/search', {'utf8': '✓', 'work_search[query]': x.target.value })))
-
 	const render_results = x => P(elem('article'),
 		child(P(elem('h1'),
 			child(P(elem('a'),
@@ -312,15 +299,16 @@ function WorkSearch()
 			child(P(elem('a'),
 				set('innerText')(x.author === Anonymous ? 'Anonymous' : x.author))))),
 		child(P(elem('h2'),
-			children(P(x.fandoms,
-				map(x => P(elem('a'), set('innerText')(x))),
-				intersperse(K1(telem)(', ')))))),
-		child(P(elem('h3'),
-			children(P(x.required_tags,
-				map(x => P(elem('a'), set('innerText')(x))),
-				intersperse(K1(telem)(', ')))))),
+			children(P(
+				[ map(x => P(elem('a'), set('className')('fandom'), set('innerText')(x)))(x.tags.fandoms),
+				map(x => P(elem('a'), set('className')('required'), set('innerText')(x)))(x.tags.required),
+				map(x => P(elem('a'), set('className')('relationship'), set('innerText')(x)))(x.tags.relationships),
+				map(x => P(elem('a'), set('className')('character'), set('innerText')(x)))(x.tags.characters),
+				map(x => P(elem('a'), set('className')('freeform'), set('innerText')(x)))(x.tags.freeforms) ],
+				flatten,
+				intersperse(K1(telem)(EMSP)))))),
 		child(P(elem('div'), set('innerHTML')(x.summary))),
-		child(P(elem('h4'),
+		child(P(elem('h3'),
 			children(P(
 				[ P(elem('span'), set('innerText')(x.language)),
 				x.words > 0 ? P(elem('span'), set('innerText')('Ａ '+x.words)) : null,
@@ -329,12 +317,7 @@ function WorkSearch()
 				x.kudos > 0 ? P(elem('span'), set('innerText')('❤ '+x.kudos)) : null,
 				x.bookmarks > 0 ? P(elem('span'), set('innerText')('⭐ '+x.bookmarks)) : null,
 				x.hits > 0 ? P(elem('span'), set('innerText')('👁 '+x.hits)) : null ],
-			filter(isnt(null)),
-			intersperse(() => telem(' ')))))),
-		child(P(elem('h4'),
-			children(P(x.tags,
-				map(x => P(elem('a'), set('innerText')(x))),
-				intersperse(() => telem(', ')))))))
+			filter(isnt(null)))))))
 
 	const render_pagination = x => [
 		x.prev ?
@@ -358,13 +341,9 @@ function WorkSearch()
 			scroll_to_top))))
 
 	return P(elem('section'),
-		set('className')('search'),
-		child(P(elem('input'),
-			set('onchange')(get_results))),
-		child(P(elem('section'),
-			compute_element(x => ({ children: P(x, parse_results, map(render_results)) }), results))),
-		child(P(elem('nav'),
-			compute_element(x => ({ children: P(x, parse_pagination, render_pagination) }), results)))) }
+		set('className')('list'),
+		compute_element(x => ({ children: P(x, parse_results, map(render_results)) }), results),
+		tap(() => url.map(K(x))))}
 
 function WorkDisplay(x=null)
 	{ const url = new Observable(null)
