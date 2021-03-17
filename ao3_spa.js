@@ -168,6 +168,9 @@ hr:after
 	text-align:center;
 	font-size: 2rem; }
 h1,h2,h3,h4,h5,h6 { margin: 0; }
+h1,h2 { line-height: 1.5em; font-weight: inherit; }
+h1 { font-size: 2rem; }
+h2 { font-size: 1.5rem; }
 :is(h1,h2,h3,h4,h5,h6) > a { color: inherit; }
 input { font-size: inherit; }
 html, body { height: 100vh; }
@@ -185,10 +188,7 @@ body > header input
 	margin: auto; }
 section.list { columns: 25em; }
 section.list article
-	{ background: #fff;
-	padding: 1em;
-	display: inline-block;
-	border-radius: 0.25rem;
+	{ display: inline-block;
 	max-height: 30em;
 	overflow: auto;
 	margin-bottom: 1em; }
@@ -205,6 +205,20 @@ a.fandom { color: #7b1fa2; }
 a.character { color: #388e3c; }
 a.relationship { color: #ffa000; }
 a.required { color: #d32f2f; }
+section.list article, section.work
+	{ background: #fff;
+	padding: 1em;
+	border-radius: 0.25rem; }
+section.work { max-width: 50em; }
+section.work > header { text-align: center; margin-bottom: 3em; }
+section.work > header:nth-of-type(2) > h1
+	{ text-decoration: underline dotted;
+	text-underline-offset: 0.25em;
+	cursor: pointer; }
+section.work > header:nth-of-type(2) > h1:hover { text-decoration-style: solid; }
+.hidden { display: none !important; }
+section.work nav { columns: 15em; text-align: left; }
+section.work nav a { display: block; break-inside: avoid; }
 `
 
 const Anonymous = Symbol()
@@ -363,7 +377,10 @@ function WorkDisplay(x=null)
 	const render_work = x => [
 		P(elem('header'),
 			child(P(elem('h1'), set('innerText')(x.title))),
-			child(P(elem('h2'), set('innerText')(x.author))),
+			child(P(elem('h2'),
+				child(P(elem('a'),
+					set('href')(`/users/${x.author}`),
+					set('innerText')(x.author))))),
 			tap(e => { if (x.summary !== null)
 				P(e, child(P(elem('div'), set('innerHTML')(x.summary))))})),
 		x.chapters.length > 0 ?
