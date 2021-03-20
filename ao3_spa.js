@@ -25,7 +25,10 @@ const filter = f => function* (xs) { let i = 0 ; for (const x of xs) if (f(x, i+
 const reduce = f => i => xs => { let a = i ; for (const x of xs) a = f(a)(x) ; return a }
 const each = f => tap(xs => { let i = 0 ; for (const x of xs) f(x, i++, xs) })
 const find_index = f => xs => { let i = -1 ; for (const x of xs) if (f(x, ++i, xs)) return i ; return null }
-const flatten = function* (xs) { for (const x of xs) yield* x }
+const flatten = function* (xs)
+	{ for (const x of xs)
+		{ if (isIterable(x)) yield* flatten(x)
+		else yield x } }
 const intersperse = a => function* (xs)
 	{ let f = false
 	for (const x of xs)
@@ -33,6 +36,7 @@ const intersperse = a => function* (xs)
 		else f = true
 		yield x }}
 const sort = f => xs => Array.from(xs).sort(f)
+const isIterable = xs => xs && xs[Symbol.iterator] instanceof Function
 
 // application, composition, combinators
 const B = a => b => c => a(b(c))
@@ -86,6 +90,7 @@ const child = c => tap(x => x.appendChild(c))
 const children = cs => tap(x => { for (const c of cs) x.appendChild(c) })
 const qs = q => (d=document) => d.querySelector(q)
 const qss = q => (d=document) => d.querySelectorAll(q)
+const on_enter = f => e => { if (e.keyCode === 13) f(e) }
 
 const log = tap(console.log)
 
@@ -218,7 +223,7 @@ section.work > header:nth-of-type(2) > h1
 section.work > header:nth-of-type(2) > h1:hover { text-decoration-style: solid; }
 .hidden { display: none !important; }
 section.work nav { columns: 15em; text-align: left; }
-section.work nav a { display: block; break-inside: avoid; }
+section.work nav a { display: list-item; break-inside: avoid; list-style: decimal; }
 `
 
 const Anonymous = Symbol()
@@ -235,12 +240,12 @@ function Header()
 	{ const url = x => search_url('/works/search', {'utf8': '✓', 'work_search[query]': x })
 	return P(elem('header'),
 		child(P(elem('input'),
-			set('onchange')
-			(PP(x => x.target.value,
+			set('onkeydown')
+			(on_enter(PP(x => x.target.value,
 				url,
 				N(WorkList),
 				K,
-				G.route.map.bind(G.route))))))}
+				G.route.map.bind(G.route)))))))}
 
 function WorkList(x)
 	{ const results = new Observable(null)
@@ -365,12 +370,14 @@ function WorkDisplay(x=null)
 	const chapters = new Observable(false)
 	const work_id = new Computed(x => x.match(/works\/([0-9]+)/)[1], url)
 
+	const chapter_name = x => x.match(/^[0-9]+. (.+)$/)[1]
+
 	const parse_work = x => ({
 		title: P(x, qs('.title.heading'), pluck('innerText'), trim),
 		summary: P(x, qs('.preface .summary blockquote'), maybe(pluck('innerHTML'))),
 		author: P(x, qs('a[rel="author"]'), pluck('innerText'), trim),
 		body: P(x, qs('#chapters .userstuff'), tap(PP(qs('h3#work'), maybe(x=>x.remove()))), pluck('innerHTML')),
-		chapters: P(x, qss('#chapter_index option'), map(x => [ x.innerText, x.value ]), Array.from),
+		chapters: P(x, qss('#chapter_index option'), map(x => [ chapter_name(x.innerText), x.value ]), Array.from),
 		current_index: P(x, qss('#chapter_index option'), find_index(x => x.selected === true)),
 	})
 
