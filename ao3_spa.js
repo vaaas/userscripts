@@ -21,6 +21,7 @@ const falsify = always(false)
 
 // loops
 const map = f => function* (xs) { let i = 0 ; for (const x of xs) yield f(x, i++, xs) }
+map.second = f => map(x => [x[0],f(x[1])])
 const filter = f => function* (xs) { let i = 0 ; for (const x of xs) if (f(x, i++, xs)) yield x }
 const reduce = f => i => xs => { let a = i ; for (const x of xs) a = f(a)(x) ; return a }
 const each = f => tap(xs => { let i = 0 ; for (const x of xs) f(x, i++, xs) })
@@ -67,6 +68,10 @@ const form_data = x =>
 		data.append(k, v)
 	return data }
 const N = o => x => new o(x)
+
+//math
+const add = a => b => a+b
+const addr = a => b => b+a
 
 // strings
 const trim = x => x.trim()
@@ -268,27 +273,19 @@ function WorkList(x)
 			qs('.summary'),
 			maybe(pluck('innerHTML')),
 			nothing(K(''))),
-		tags:
-			{ fandoms: P(x,
-				qss('.fandoms a.tag'),
+		tags: P([
+				['fandoms', '.fandoms'],
+				['required', '.required-tags'],
+				['relationships', 'ul.tags .relationships'],
+				['characters', 'ul.tags .characters'],
+				['freeforms', 'ul.tags .freeforms']
+			],
+			map.second(PP(
+				addr(' a'),
+				C(qss)(x),
 				map(pluck('innerText')),
-				sort(alphabetically)),
-			required: P(x,
-				qss('.required-tags .text'),
-				map(pluck('innerText')),
-				sort(alphabetically)),
-			relationships: P(x,
-				qss('ul.tags .relationships a.tag'),
-				map(pluck('innerText')),
-				sort(alphabetically)),
-			characters: P(x,
-				qss('ul.tags .characters a.tag'),
-				map(pluck('innerText')),
-				sort(alphabetically)),
-			freeforms: P(x,
-				qss('ul.tags .freeforms a.tag'),
-				map(pluck('innerText')),
-				sort(alphabetically)), },
+				sort(alphabetically))),
+			Object.fromEntries),
 		words: P(x, qs('dd.words'), maybe(PP(pluck('innerText'), parseFloat)), nothing(K(0))),
 		language: P(x, qs('dd.language'), maybe(pluck('innerText')), nothing(K('English'))),
 		chapters: P(x, qs('dd.chapters'), maybe(pluck('innerText'))),
@@ -319,11 +316,12 @@ function WorkList(x)
 				set('innerText')(x.author === Anonymous ? 'Anonymous' : x.author))))),
 		child(P(elem('h2'),
 			children(P(
-				[ map(x => P(elem('a'), set('className')('fandom'), set('innerText')(x)))(x.tags.fandoms),
-				map(x => P(elem('a'), set('className')('required'), set('innerText')(x)))(x.tags.required),
-				map(x => P(elem('a'), set('className')('relationship'), set('innerText')(x)))(x.tags.relationships),
-				map(x => P(elem('a'), set('className')('character'), set('innerText')(x)))(x.tags.characters),
-				map(x => P(elem('a'), set('className')('freeform'), set('innerText')(x)))(x.tags.freeforms) ],
+				[['fandoms', 'fandom'],
+				['required', 'required'],
+				['relationships', 'relationship'],
+				['characters', 'character'],
+				['freeforms', 'freeform']],
+				map(p => map(x => P(elem('a'), set('className')(p[1]), set('innerText')(x)))(x.tags[p[0]])),
 				flatten,
 				intersperse(K1(telem)(EMSP)))))),
 		child(P(elem('div'), set('innerHTML')(x.summary))),
@@ -372,14 +370,26 @@ function WorkDisplay(x=null)
 
 	const chapter_name = x => x.match(/^[0-9]+. (.+)$/)[1]
 
-	const parse_work = x => ({
-		title: P(x, qs('.title.heading'), pluck('innerText'), trim),
+	const parse_work = x =>
+		({ title: P(x, qs('.title.heading'), pluck('innerText'), trim),
 		summary: P(x, qs('.preface .summary blockquote'), maybe(pluck('innerHTML'))),
 		author: P(x, qs('a[rel="author"]'), pluck('innerText'), trim),
 		body: P(x, qs('#chapters .userstuff'), tap(PP(qs('h3#work'), maybe(x=>x.remove()))), pluck('innerHTML')),
 		chapters: P(x, qss('#chapter_index option'), map(x => [ chapter_name(x.innerText), x.value ]), Array.from),
 		current_index: P(x, qss('#chapter_index option'), find_index(x => x.selected === true)),
-	})
+		tags: P([
+				['fandoms', '.fandom'],
+				['required', ':is(.warning,.rating,.category)'],
+				['relationships', '.relationship'],
+				['characters', '.character'],
+				['freeforms', '.freeform']
+			],
+			map.second(PP(
+				addr(' a'),
+				C(qss)(x),
+				map(pluck('innerText')),
+				sort(alphabetically))),
+			Object.fromEntries), })
 
 	const render_work = x => [
 		P(elem('header'),
@@ -388,6 +398,17 @@ function WorkDisplay(x=null)
 				child(P(elem('a'),
 					set('href')(`/users/${x.author}`),
 					set('innerText')(x.author))))),
+			child(P(elem('h3')),
+				set('className')('tags'),
+				children(P(
+					[['fandoms', 'fandom'],
+					['required', 'required'],
+					['relationships', 'relationship'],
+					['characters', 'character'],
+					['freeforms', 'freeform']],
+					map(p => map(x => P(elem('a'), set('className')(p[1]), set('innerText')(x)))(x.tags[p[0]])),
+					flatten,
+					intersperse(K1(telem)(EMSP))))),
 			tap(e => { if (x.summary !== null)
 				P(e, child(P(elem('div'), set('innerHTML')(x.summary))))})),
 		x.chapters.length > 0 ?
